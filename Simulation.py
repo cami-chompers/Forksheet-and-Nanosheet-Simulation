@@ -1,57 +1,69 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import os
+from sklearn.preprocessing import MinMaxScaler
+import tkinter as tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.gridspec as gridspec
+
 
 # Corrected file paths and column names
 expected_columns = {
-    "Switching Speeds_NS": ["time", "V(output)", "V(n003)", "I(Vdd)"],
-    "Switching Speeds_FS_drafft": ["time", "V(output)", "V(n003)", "I(Vdd)"]  # Ensure the name is consistent with the path
+    "FS_draft (1)": ["time", "V(output)"],
+    "NS_draft (1)": ["time", "V(output)"]  # Ensure the name is consistent with the path
 }
 
 # Test files with the correct path for "Switching Speeds_FS_drafft.txt"
 test_files = [
-    "C:\\Users\\19562\\Downloads\\NS\\Switching Speeds_NS.txt",  # Corrected path
-    "C:\\Users\\19562\\Downloads\\FS\\Switching Speeds_FS_drafft.txt"   # Corrected path
+    "C:\\Users\\19562\Downloads\\NS_draft (1).txt",  # Corrected path
+    "C:\\Users\\19562\Downloads\\FS_draft (1).txt"   # Corrected path
 ]
+
+# Helper function to replace units
+def replace_units(value):
+    return value.replace('n', 'e-9').replace('µ', 'e-6')
 
 # Function to load and process each file
 def load_and_process_data(file_path, expected_columns):
-    file_name = os.path.basename(file_path).split('.')[0]  # Extract the file name without extension
+    file_name = os.path.basename(file_path).split('.')[0]  # Extract file name without extension
     
     # Check if the file corresponds to the expected columns
     if file_name not in expected_columns:
         raise ValueError(f"Unexpected file: {file_name}. No matching columns found.")
     
-    # Load data from the file
-    try:
-        data = pd.read_csv(file_path, sep=r'\s+', comment="S", header=None, encoding="ISO-8859-1")
-    except UnicodeDecodeError:
-        print(f"Error reading file {file_path}. Trying with a different encoding...")
-        data = pd.read_csv(file_path, sep=r'\s+', comment="S", header=None, encoding="ISO-8859-1")
+    # Initialize lists to store combined step data
+    all_data = []
 
-    # Print column names for debugging
-    print(f"Columns in {file_name}: {data.columns}")
-    
-    # Add column names
-    data.columns = expected_columns[file_name]
-    
-    # Extract "Step Information" for L and W values
     with open(file_path, 'r', encoding='ISO-8859-1') as file:
         lines = file.readlines()
-        step_info = next(line for line in lines if line.startswith('Step Information'))
-        L_val = float(step_info.split('Lval=')[1].split()[0].replace('n', 'e-9').replace('µ', 'e-6'))
-        W_val = float(step_info.split('Wval=')[1].split()[0].replace('µ', 'e-6'))
-    
-    # Add L and W values as columns to the data
-    data['L'] = L_val
-    data['W'] = W_val
-    
+        current_step = None
+        current_L = None
+        current_W = None
+
+        for line in lines:
+            # Check for "Step Information" and extract L and W
+            if line.startswith("Step Information:"):
+                step_info = line
+                current_L = float(replace_units(step_info.split('Lval=')[1].split()[0]))
+                current_W = float(replace_units(step_info.split('Wval=')[1].split()[0]))
+                current_step = True
+                continue
+
+            # If we're reading step data, append it
+            if current_step and not line.startswith("Step Information"):
+                values = line.strip().split()
+                if len(values) == len(expected_columns[file_name]):  # Ensure correct column count
+                    all_data.append(values + [current_L, current_W])  # Append L and W
+                else:
+                    current_step = False  # Stop if the step block ends
+
+    # Convert combined data to DataFrame
+    columns = expected_columns[file_name] + ['L', 'W']
+    data = pd.DataFrame(all_data, columns=columns).astype(float)
     return data
 
 # Function to clean and normalize data
@@ -67,105 +79,444 @@ def clean_and_normalize(data):
     return data
 
 
-# Function to visualize the data
-def visualize_data(data, test_name): 
-    # Check for columns relevant to the test type and plot accordingly
+def display_graphs_with_scroll(figures, window_title):
+    """
+    Displays a batch of figures in a scrollable tkinter window.
+    """
+    # Create a new top-level window for each batch
+    window = tk.Toplevel()
+    window.title(window_title)
 
-    if all(col in data.columns for col in ["time", "V(output)", "V(n003)", "I(Vdd)"]): # Switching Speeds
-        plt.figure(figsize=(8, 6))
-        # Plot V(output) vs Time
-        plt.plot(data['time'], data['V(output)'], label=f"{test_name} - V(output) vs Time")
-        plt.xlabel("Time (s)")
-        plt.ylabel("V(output) (Volts)")
-        plt.title(f"{test_name} - Switching Speed Measurement")
-        
-    else:
-        print(f"Warning: No relevant columns found for {test_name}. Skipping plot.")
-    
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    canvas = tk.Canvas(window)
+    scrollbar = tk.Scrollbar(window, orient="vertical", command=canvas.yview)
+    scrollable_frame = tk.Frame(canvas)
 
-def train_model(data, target_columns):
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # Embed figures in the scrollable frame
+    for fig in figures:
+        canvas_widget = FigureCanvasTkAgg(fig, master=scrollable_frame)
+        canvas_widget.get_tk_widget().pack()
+
+
+def plot_fixed_param_grouped(data, fixed_param, param_name, other_param_name, title_prefix):
+    """
+    Plots grouped graphs with tables below them, batching 5 graphs per window.
+    """
+    unique_values = sorted(data[fixed_param].unique())
+    batch_size = 5  # Number of graphs per window
+    figures = []
+    window_count = 0  # Track number of windows created
+
+    for i, value in enumerate(unique_values):
+        # Filter subset data
+        subset = data[data[fixed_param] == value]
+
+        # Create a new figure for each graph-table pair
+        fig = plt.figure(figsize=(8, 6))
+        gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])  # Allocate space for graph and table
+
+        # Plot graph
+        ax1 = plt.subplot(gs[0])
+        ax1.plot(subset['time'], subset['V(output)'], label=f"{fixed_param}={value}")
+        ax1.set_ylabel("V(output)")
+        ax1.set_xlabel("Time (s)")
+        ax1.set_title(f"{title_prefix}\n{fixed_param}={value}")
+        ax1.grid()
+        ax1.legend()
+
+        # Add table below the graph
+        ax2 = plt.subplot(gs[1])
+        ax2.axis("off")  # Hide axes for the table
+
+        # Select 10 evenly spaced rows from the subset
+        num_rows = 10
+        if len(subset) > num_rows:
+            indices = np.linspace(0, len(subset) - 1, num_rows, dtype=int)
+            table_data = subset.iloc[indices][['time', 'V(output)']]
+        else:
+            table_data = subset[['time', 'V(output)']]  # Fallback for small datasets
+
+        table = ax2.table(
+            cellText=table_data.values,
+            colLabels=table_data.columns,
+            cellLoc='center',
+            loc='center'
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1, 1.5)  # Adjust table size
+
+        plt.tight_layout()
+        figures.append(fig)  # Add figure to list
+
+        # Display figures in batches of 5
+        if len(figures) == batch_size or i == len(unique_values) - 1:
+            window_count += 1
+            window_title = f"{title_prefix} - Window {window_count}"
+            display_graphs_with_scroll(figures, window_title)  # Display batch
+            figures = []  # Reset batch
+
+    # Prevent individual windows from opening
+    plt.close('all')
+
+def train_model(data, target_columns, transistor_name, output_path):
     # Ensure numeric data
-    data = data.apply(pd.to_numeric, errors='coerce')
+    data = data.apply(pd.to_numeric, errors="coerce")
     data = data.dropna()
 
-    # Debugging columns and basic stats
-    print(f"Columns in dataset ({target_columns}):", data.columns)
-    print("Target column stats:")
-    for col in target_columns:
-        print(f"\n{col}:\n{data[col].describe()}")
+    print(f"Training models for {transistor_name}, total data size: {len(data)}")
 
-    # Features and multiple targets
-    X = data.drop(columns=target_columns)
-    y = data[target_columns]  # Multiple targets as a DataFrame
+    # Get unique L and W combinations and sort by W, then L
+    unique_combinations = data[['L', 'W']].drop_duplicates().sort_values(by=['W', 'L'])
+
+    results = []
+
+    for _, combo in unique_combinations.iterrows():
+        L, W = combo['L'], combo['W']
+
+        # Filter data for the current combination
+        combo_data = data[(data['L'] == L) & (data['W'] == W)]
+
+        if combo_data.empty:
+            print(f"No data for L={L}, W={W}. Skipping.")
+            continue
+
+        # Prepare features and targets
+        X = combo_data.drop(columns=target_columns)
+        y = combo_data[target_columns].values.ravel()
+
+        # Normalize features
+        scaler = MinMaxScaler()
+        X = scaler.fit_transform(X)
+
+        # Train-test split
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Train Random Forest model
+        model = RandomForestRegressor(n_estimators=100, random_state=42)
+        model.fit(X_train, y_train)
+
+        # Evaluate performance
+        y_pred = model.predict(X_test)
+
+        for i, col in enumerate(target_columns):
+            # Extract the corresponding column from y_test
+            y_test_col = y_test[:, i] if len(target_columns) > 1 else y_test
+
+            # Metrics
+            mae = mean_absolute_error(y_test_col, y_pred[:, i] if len(target_columns) > 1 else y_pred)
+            rmse = np.sqrt(mean_squared_error(y_test_col, y_pred[:, i] if len(target_columns) > 1 else y_pred))
+            r2 = r2_score(y_test_col, y_pred[:, i] if len(target_columns) > 1 else y_pred)
+
+            # Metrics for different conditions (on_mask, off_mask)
+            threshold = 2.5
+            on_mask = y_test_col >= threshold
+            off_mask = y_test_col < threshold
+            mae_on = mean_absolute_error(y_test_col[on_mask], y_pred[on_mask])
+            mae_off = mean_absolute_error(y_test_col[off_mask], y_pred[off_mask])
+
+            # Append results
+            results.append({
+                'Transistor': transistor_name,
+                'Length (L)': L,
+                'Width (W)': W,
+                'Target': col,
+                'MAE': mae,
+                'RMSE': rmse,
+                'R2': r2,
+                'MAE_On': mae_on,
+                'MAE_Off': mae_off
+            })
+
+    # Create results DataFrame
+    results_df = pd.DataFrame(results)
+
+    # Ensure correct column ordering
+    results_df = results_df[['Transistor', 'Length (L)', 'Width (W)', 'Target', 'MAE', 'RMSE', 'R2', 'MAE_On', 'MAE_Off']]
+    
+    pd.set_option('display.max_columns', None)  # Show all columns
+    pd.set_option('display.max_rows', None)    # Show all rows
+    
+    print(f"\n{transistor_name} model Evaluation Metrics:\n", results_df)
+
+    # Export to CSV
+    os.makedirs(output_path, exist_ok=True)
+    results_df.to_csv(os.path.join(output_path, f"{transistor_name} model_evaluation.csv"), index=False)
+    print(f"\n{transistor_name} model evaluation exported to {output_path}")
+
+    # Calculate average metrics
+    average_metrics = results_df[['MAE', 'RMSE', 'R2', 'MAE_On', 'MAE_Off']].mean().reset_index()
+    average_metrics.columns = ['Metric', 'Average Value']
+
+    # Display and export average metrics
+    print(f"\nAverage Metrics for {transistor_name}:\n", average_metrics)
 
 
-    # Normalize features
-    from sklearn.preprocessing import MinMaxScaler
-    scaler = MinMaxScaler()
-    X = scaler.fit_transform(X)
 
-    # Train-test split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+def find_nearest_index(data, value):
+    """Find the index of the nearest value in the data array."""
+    return np.abs(data - value).argmin()
 
-    # Model training
-    model = LinearRegression()
-    model.fit(X_train, y_train)
+def summarize_and_compare(data, output_path, transistor_name):
+    # Ensure numeric data
+    data = data.apply(pd.to_numeric, errors="coerce")
+    data = data.dropna()
 
-    # Cross-validation (for single target column only; adjust for multiple if needed)
-    cv_scores = []
-    for col in target_columns:
-        scores = cross_val_score(model, X_train, y_train[col], cv=5, scoring='neg_mean_squared_error')
-        cv_rmse = np.sqrt(-scores).mean()
-        cv_scores.append((col, cv_rmse))
-        print(f"Cross-Validation RMSE for {col} (average): {cv_rmse:.4f}")
+    # Add transistor name as a new column
+    data['Transistor'] = transistor_name
 
-    # Prediction and evaluation for each target
-    y_pred = model.predict(X_test)
-    for i, col in enumerate(target_columns):
-        mae = mean_absolute_error(y_test[col], y_pred[:, i])
-        rmse = np.sqrt(mean_squared_error(y_test[col], y_pred[:, i]))
-        print(f"\n{col}:")
-        print(f"  Mean Absolute Error (MAE): {mae:.4f}")
-        print(f"  Root Mean Squared Error (RMSE): {rmse:.4f}")
+    # Ensure that 'Transistor' column is in the data
+    if 'Transistor' not in data.columns:
+        raise ValueError("The 'Transistor' column is missing. Cannot proceed without it.")
 
-    return model, X_test, y_test, y_pred
+    print(f"Summarizing data for {transistor_name}, total data size: {len(data)}")
+
+    # Per L-W combination summary
+    summary = data.groupby(['L', 'W']).agg({
+        'time': ['min', 'max'],
+        'V(output)': ['mean', 'std', 'min', 'max']
+    }).reset_index()
+
+    # Add the 'Transistor' column to the summary
+    summary['Transistor'] = transistor_name
+
+    # Update column names based on the aggregation
+    summary.columns = [
+        'Length (L)', 'Width (W)', 
+        'Start Time', 'End Time', 'Mean Voltage', 
+        'Voltage Std Dev', 'Min Voltage', 'Max Voltage',
+        'Transistor'
+    ]
+
+    # Reorder columns to place 'Transistor' at the front
+    summary = summary[['Transistor', 'Length (L)', 'Width (W)', 
+                       'Start Time', 'End Time', 'Mean Voltage', 
+                       'Voltage Std Dev', 'Min Voltage', 'Max Voltage']]
+
+    # Compute average metrics across all L-W combinations for each transistor type
+    avg_summary = summary.groupby('Transistor').mean(numeric_only=True).reset_index()
+    avg_summary = avg_summary.rename(columns={
+        'Start Time': 'Avg Start Time',
+        'End Time': 'Avg End Time',
+        'Mean Voltage': 'Avg Mean Voltage',
+        'Voltage Std Dev': 'Avg Voltage Std Dev',
+        'Min Voltage': 'Avg Min Voltage',
+        'Max Voltage': 'Avg Max Voltage'
+    }).drop(['Length (L)', 'Width (W)'], axis=1)
+
+    # Performance Metrics (rise/fall times and propagation delays)
+    performance_metrics = []
+    for (name, L, W), subset in data.groupby(['Transistor', 'L', 'W']):
+        # Ensure subset is sorted by time
+        subset = subset.sort_values(by='time')
+
+        # Extract arrays for easier manipulation
+        time_array = subset['time'].values
+        voltage_array = subset['V(output)'].values
+
+        # Calculate min and max voltage
+        v_min, v_max = np.min(voltage_array), np.max(voltage_array)
+
+        # RISE TIME: Time to go from 10% to 90% of max voltage
+        rise_start_voltage = v_min + 0.1 * (v_max - v_min)
+        rise_end_voltage = v_min + 0.9 * (v_max - v_min)
+
+        rise_start_idx = find_nearest_index(voltage_array, rise_start_voltage)
+        rise_end_idx = find_nearest_index(voltage_array, rise_end_voltage)
+
+        rise_start_time = time_array[rise_start_idx]
+        rise_end_time = time_array[rise_end_idx]
+        rise_time = max(0, rise_end_time - rise_start_time)  # Ensure non-negative
+
+        # FALL TIME: Time to go from 90% to 10% of max voltage
+        fall_start_voltage = v_max - 0.1 * (v_max - v_min)
+        fall_end_voltage = v_max - 0.9 * (v_max - v_min)
+
+        fall_start_idx = find_nearest_index(voltage_array, fall_start_voltage)
+        fall_end_idx = find_nearest_index(voltage_array, fall_end_voltage)
+
+        fall_start_time = time_array[fall_start_idx]
+        fall_end_time = time_array[fall_end_idx]
+        fall_time = max(0, fall_start_time - fall_end_time)  # Ensure non-negative
+
+        # PROPAGATION DELAY: Average of 50% rise and fall times
+        prop_voltage = v_min + 0.5 * (v_max - v_min)
+        prop_rise_idx = find_nearest_index(voltage_array, prop_voltage)
+        prop_fall_idx = find_nearest_index(voltage_array, prop_voltage)
+
+        prop_delay_rise_time = time_array[prop_rise_idx]
+        prop_delay_fall_time = time_array[prop_fall_idx]
+        propagation_delay = (prop_delay_rise_time + prop_delay_fall_time) / 2
+
+        performance_metrics.append({
+            'Transistor': transistor_name,
+            'Length (L)': L,
+            'Width (W)': W,
+            'Rise Time': rise_time,
+            'Fall Time': fall_time,
+            'Propagation Delay': propagation_delay
+        })
+        
+    pd.set_option('display.max_columns', None)  # Show all columns
+    pd.set_option('display.max_rows', None)    # Show all rows 
+
+    performance_metrics_df = pd.DataFrame(performance_metrics)
+
+    # Compute average metrics across all L-W combinations for each transistor type
+    avg_metrics = performance_metrics_df.groupby('Transistor').mean(numeric_only=True).reset_index()
+    avg_metrics = avg_metrics.rename(columns={
+        'Rise Time': 'Avg Rise Time',
+        'Fall Time': 'Avg Fall Time',
+        'Propagation Delay': 'Avg Propagation Delay'
+    }).drop(['Length (L)', 'Width (W)'], axis=1)
+
+    # Print results
+    print("\nPer L-W Combination Summary:\n", summary)
+    print("\nAverage Summary:\n", avg_summary)
+    print("\nPerformance Metrics:\n", performance_metrics_df)
+    print("\nAverage Performance Metrics:\n", avg_metrics)
+
+    # Save results to output path
+    os.makedirs(output_path, exist_ok=True)
+    summary.to_csv(os.path.join(output_path, f"{transistor_name} summary.csv"), index=False)
+    performance_metrics_df.to_csv(os.path.join(output_path, f"{transistor_name} performance_metrics.csv"), index=False)
+
+    print("Results exported successfully to:", output_path)
+
+
+    performance_metrics_df = pd.DataFrame(performance_metrics)
+
+    # Compute average metrics across all L-W combinations for each transistor type
+    avg_metrics = performance_metrics_df.groupby('Transistor').mean(numeric_only=True).reset_index()
+    avg_metrics = avg_metrics.rename(columns={
+        'Rise Time': 'Avg Rise Time',
+        'Fall Time': 'Avg Fall Time',
+        'Propagation Delay': 'Avg Propagation Delay'
+    }).drop(['Length (L)', 'Width (W)'], axis=1)
+
+
+    # Print results
+    print("\nPer L-W Combination Summary:\n", summary)
+    print("\nAverage Summary:\n", avg_summary)
+    print("\nPerformance Metrics:\n", performance_metrics_df)
+    print("\nAverage Performance Metrics:\n", avg_metrics)
+    
+    # Save results to output path
+    os.makedirs(output_path, exist_ok=True)
+    summary.to_csv(os.path.join(output_path, f"{transistor_name} summary.csv"), index=False)
+    performance_metrics_df.to_csv(os.path.join(output_path, f"{transistor_name} performance_metrics.csv"), index=False)
+    export_file(data, transistor_name,output_path)
+    print("Results exported successfully to:", output_path)
 
 
 
 
+def compare_and_plot(data_ns, data_fs):
+    # Add transistor type for clarity if not already present
+    data_ns['Transistor'] = 'Nanosheet'
+    data_fs['Transistor'] = 'Forksheet'
+
+    combined_data = pd.concat([data_ns, data_fs], ignore_index=True)
+
+    # Overlay plot
+    plt.figure(figsize=(10, 6))
+    for name, subset in combined_data.groupby('Transistor'):
+        plt.plot(subset['time'], subset['V(output)'], label=name, alpha=0.7)
+    plt.xlabel("Time (s)")
+    plt.ylabel("V(output)")
+    plt.title("Combined Switching Speeds: Nanosheet vs Forksheet")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    
 # Function to export results to CSV
-def export_results(data, test_name):
-    output_path = f"C:/Users/19562/Downloads/{test_name}_results.csv"
-    data.to_csv(output_path, index=False)
-    print(f"Results exported to {output_path}")
+def export_file(data, test_name,output_path):
+    data.to_csv(os.path.join(output_path, f"{test_name}_data.csv"))
+    print(f"{test_name} data exported to {output_path}")
 
 def main():
-    for file_path in test_files:
-        # Load and process data for each file
-        data = load_and_process_data(file_path, expected_columns)
+        # Load and process data for NS and FS transistors
+        print("Loading and processing nanosheet data...")
+        data_ns = load_and_process_data(test_files[0], expected_columns)
+        print("Loading and processing forksheet data...")
+        data_fs = load_and_process_data(test_files[1], expected_columns)
+
+        # Clean and normalize data for both datasets
+        print("Cleaning and normalizing nanosheet data...")
+        data_ns_cleaned = clean_and_normalize(data_ns)
+        print("Cleaning and normalizing forksheet data...")
+        data_fs_cleaned = clean_and_normalize(data_fs)
+
+        # Extract unique lengths (L) and widths (W) dynamically for both datasets
+        print("Extracting unique lengths and widths for nanosheet...")
+        unique_lengths_ns = sorted(data_ns_cleaned['L'].unique())
+        unique_widths_ns = sorted(data_ns_cleaned['W'].unique())
+
+        print("Extracting unique lengths and widths for forksheet...")
+        unique_lengths_fs = sorted(data_fs_cleaned['L'].unique())
+        unique_widths_fs = sorted(data_fs_cleaned['W'].unique())
         
-        # Clean and normalize the data
-        data_cleaned = clean_and_normalize(data)
+
+        # Plot for each unique length with varying widths for NS and FS
+        print("Generating fixed length plots for nanosheet...")
+        for fixed_length in unique_lengths_ns:
+            subset = data_ns_cleaned[data_ns_cleaned['L'] == fixed_length]
+            title_prefix = f"Nanosheet | Fixed Length: {fixed_length:.2e}"
+            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix)
+
+        print("Generating fixed length plots for forksheet...")
+        for fixed_length in unique_lengths_fs:
+            subset = data_fs_cleaned[data_fs_cleaned['L'] == fixed_length]
+            title_prefix = f"Forksheet | Fixed Length: {fixed_length:.2e}"
+            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix)
+
+        # Plot for each unique width with varying lengths for NS and FS
+        print("Generating fixed width plots for nanosheet...")
+        for fixed_width in unique_widths_ns:
+            subset = data_ns_cleaned[data_ns_cleaned['W'] == fixed_width]
+            title_prefix = f"Nanosheet | Fixed Width: {fixed_width:.2e}"
+            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix)
+
+        print("Generating fixed width plots for forksheet...")
+        for fixed_width in unique_widths_fs:
+            subset = data_fs_cleaned[data_fs_cleaned['W'] == fixed_width]
+            title_prefix = f"Forksheet | Fixed Width: {fixed_width:.2e}"
+            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix)
         
-        # Visualize the data
-        visualize_data(data_cleaned, os.path.basename(file_path))
-        file_name = os.path.basename(file_path)
+
+        # Define target columns for prediction
+        target_columns = ['V(output)']
+
+        # Define output directory
+        output_path = "C:\\Users\\19562\\Downloads\\stats_summary_data"
         
-        # Train models for each test
-        if "Switching Speeds_NS" in file_name:
-            target_columns = ['V(output)']
-        if "Switching Speeds_FS_drafft" in file_name:
-            target_columns = ['V(output)']
-        
-        # Now call the model training function with the appropriate target columns
-        model, X_test, y_test, y_pred = train_model(data_cleaned, target_columns)
-        
-        # Export results to CSV
-        export_results(data_cleaned, os.path.basename(file_path))
+        # Train models for NS and FS datasets
+        print("\nTraining models for nanosheet data...")
+        train_model(data_ns, target_columns,"Nanosheet",output_path)
+        print("Training models for forksheet data...")
+        train_model(data_fs, target_columns,"Forksheet",output_path)
+
+        # Perform summary and comparison
+        print("Summarizing and exporting results...")
+        summarize_and_compare(data_ns,output_path,"Nanosheet")
+        summarize_and_compare(data_fs,output_path,"Forksheet")
+        compare_and_plot(data_ns,data_fs)
+
 
 # Run the main function
 if __name__ == "__main__":
+    root = tk.Tk()
+    root.withdraw()  # Hide the main root window
     main()
+    root.mainloop()
