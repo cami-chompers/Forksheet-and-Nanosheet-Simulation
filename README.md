@@ -42,7 +42,7 @@ Outputs
 The script will:
 - Generate voltage vs. time plots for switching characteristics.
 - Export performance summaries as `.csv` files, including metrics like rise time, fall time, and propagation delays.
-- Evaluate machine learning models and display key metrics like MAE, RMSE, and R-squared (R2).
+- Evaluate machine learning models and display key metrics like MAE, MAE Off, MAE On, RMSE, and R-squared (R2).
 
 Example Outputs
 - Voltage vs. Time Plots: Visualize switching characteristics of nanosheet and forksheet designs.
