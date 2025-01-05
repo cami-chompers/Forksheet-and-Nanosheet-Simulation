@@ -394,33 +394,6 @@ def summarize_and_compare(data, output_path, transistor_name):
     print("Results exported successfully to:", output_path)
 
 
-    performance_metrics_df = pd.DataFrame(performance_metrics)
-
-    # Compute average metrics across all L-W combinations for each transistor type
-    avg_metrics = performance_metrics_df.groupby('Transistor').mean(numeric_only=True).reset_index()
-    avg_metrics = avg_metrics.rename(columns={
-        'Rise Time': 'Avg Rise Time',
-        'Fall Time': 'Avg Fall Time',
-        'Propagation Delay': 'Avg Propagation Delay'
-    }).drop(['Length (L)', 'Width (W)'], axis=1)
-
-
-    # Print results
-    print("\nPer L-W Combination Summary:\n", summary)
-    print("\nAverage Summary:\n", avg_summary)
-    print("\nPerformance Metrics:\n", performance_metrics_df)
-    print("\nAverage Performance Metrics:\n", avg_metrics)
-    
-    # Save results to output path
-    os.makedirs(output_path, exist_ok=True)
-    summary.to_csv(os.path.join(output_path, f"{transistor_name} summary.csv"), index=False)
-    performance_metrics_df.to_csv(os.path.join(output_path, f"{transistor_name} performance_metrics.csv"), index=False)
-    export_file(data, transistor_name,output_path)
-    print("Results exported successfully to:", output_path)
-
-
-
-
 def compare_and_plot(data_ns, data_fs):
     # Add transistor type for clarity if not already present
     data_ns['Transistor'] = 'Nanosheet'
