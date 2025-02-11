@@ -17,7 +17,7 @@ expected_columns = {
     "NS_draft (1)": ["time", "V(output)"]  # Ensure the name is consistent with the path
 }
 
-# Test files with the correct path for "Switching Speeds_FS_drafft.txt"
+# Test files with the correct path
 test_files = [
     "C:\\Users\\19562\Downloads\\NS_draft (1).txt",  # Corrected path
     "C:\\Users\\19562\Downloads\\FS_draft (1).txt"   # Corrected path
