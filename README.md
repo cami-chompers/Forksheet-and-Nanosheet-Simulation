@@ -42,20 +42,19 @@ Outputs
 
 The script will:
 
--Generate voltage vs. time plots for switching characteristics.
-
--Export performance metrics as .csv files (rise time, fall time, propagation delays).
-
--Evaluate machine learning models and display:
-
-   -MAE (Mean Absolute Error)
+   -Generate voltage vs. time plots for switching characteristics.
    
-   -MAE Off / On
+   -Export performance metrics as .csv files (rise time, fall time, propagation delays).
    
-   -RMSE (Root Mean Squared Error)
+   -Evaluate machine learning models and display:
    
-   -R² (R-squared): Measures model fit quality.
-   
+      -MAE (Mean Absolute Error)
+      
+      -MAE Off / On
+      
+      -RMSE (Root Mean Squared Error)
+      
+      -R² (R-squared): Measures model fit quality.
 
 ⚠️ Important: After the initial Tkinter windows (showing switching speeds and tables), the script generates plots using Matplotlib.
 You must close each Matplotlib window manually to continue to the next plot.
