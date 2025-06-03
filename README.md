@@ -44,7 +44,7 @@ The script will:
 
    -Generate voltage vs. time plots for switching characteristics.
    
-   -Export performance metrics as .csv files (rise time, fall time, propagation delays).
+   -Export performance metrics as .csv files (rise time, fall time, propagation delays, minimum and maximum voltage values).
    
    -Evaluate machine learning models and display:
    
