@@ -40,14 +40,16 @@ Step 2: Python Analysis
 
 Outputs
 The script will:
-- Generate voltage vs. time plots for switching characteristics.
-- Export performance summaries as `.csv` files, including metrics like rise time, fall time, and propagation delays.
-- Evaluate machine learning models and display key metrics like MAE, MAE Off, MAE On, RMSE, and R-squared (R2).
+-Generate voltage vs. time plots for switching characteristics.
+-Export performance metrics as .csv files (rise time, fall time, propagation delays).
+-Evaluate machine learning models and display:
+   -MAE (Mean Absolute Error)
+   -MAE Off / On
+   -RMSE (Root Mean Squared Error)
+   -R² (R-squared): Measures model fit quality.
 
-Example Outputs
-- Voltage vs. Time Plots: Visualize switching characteristics of nanosheet and forksheet designs.
-- Performance Metrics: CSV files summarizing transistor behaviors.
-- Model Evaluations: Machine learning predictions of transistor performance.
+⚠️ Important: After the initial Tkinter windows (showing switching speeds and tables), the script generates plots using Matplotlib.
+You must close each Matplotlib window manually to continue to the next plot.
 
 Notes
 - If you encounter issues with missing columns or file paths, ensure the exported LTSpice `.txt` files are correctly formatted and paths are updated in `simulation.py`.
