@@ -39,14 +39,23 @@ Step 2: Python Analysis
    - In IDLE: Navigate to Run > Run Module or press `F5`.  
 
 Outputs
+
 The script will:
+
 -Generate voltage vs. time plots for switching characteristics.
+
 -Export performance metrics as .csv files (rise time, fall time, propagation delays).
+
 -Evaluate machine learning models and display:
+
    -MAE (Mean Absolute Error)
+   
    -MAE Off / On
+   
    -RMSE (Root Mean Squared Error)
+   
    -R² (R-squared): Measures model fit quality.
+   
 
 ⚠️ Important: After the initial Tkinter windows (showing switching speeds and tables), the script generates plots using Matplotlib.
 You must close each Matplotlib window manually to continue to the next plot.
