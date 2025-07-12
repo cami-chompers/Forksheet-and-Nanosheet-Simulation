@@ -1,26 +1,38 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+plt.rcParams.update({
+    'font.size': 15,           # Increase default font size
+    'font.weight': 'bold',     # Make fonts bold by default
+    'axes.titlesize': 15,
+    'axes.labelsize': 15,
+    'axes.labelweight': 'bold',
+    'xtick.labelsize': 15,
+    'ytick.labelsize': 15,
+    'legend.fontsize': 15,
+    'figure.titlesize': 15
+})
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import os
 from sklearn.preprocessing import MinMaxScaler
-import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.gridspec as gridspec
+import time
+import cProfile
+import pstats
 
 
 # Corrected file paths and column names
 expected_columns = {
-    "nanosheet_circuit": ["time", "V(output)"],
-    "forksheet_circuit": ["time", "V(output)"]  # Ensure the name is consistent with the path
+    "forksheet_circuit": ["time", "V(output)"],
+    "nanosheet_circuit": ["time", "V(output)"]  # Ensure the name is consistent with the path
 }
 
-# Test files with the correct path for
+# Test files with the correct path
 test_files = [
-    "C:\\Users\\19562\\Downloads\\nanosheet_circuit.txt",
-    "C:\\Users\\19562\\Downloads\\forksheet_circuit.txt"  
+    "C:\\Users\\19562\\Downloads\\forksheet_circuit.txt",  
+    "C:\\Users\\19562\\Downloads\\nanosheet_circuit.txt"   
 ]
 
 # Helper function to replace units
@@ -29,7 +41,7 @@ def replace_units(value):
 
 # Function to load and process each file
 def load_and_process_data(file_path, expected_columns):
-    file_name = os.path.basename(file_path).split('.')[0]  # Extract file name without extension
+    file_name = os.path.basename(file_path).split('.')[0]
     
     # Check if the file corresponds to the expected columns
     if file_name not in expected_columns:
@@ -61,7 +73,6 @@ def load_and_process_data(file_path, expected_columns):
                 else:
                     current_step = False  # Stop if the step block ends
 
-    # Convert combined data to DataFrame
     columns = expected_columns[file_name] + ['L', 'W']
     data = pd.DataFrame(all_data, columns=columns).astype(float)
     return data
@@ -78,96 +89,69 @@ def clean_and_normalize(data):
     data[numeric_data.columns] = numeric_data
     return data
 
-
-def display_graphs_with_scroll(figures, window_title):
-    """
-    Displays a batch of figures in a scrollable tkinter window.
-    """
-    # Create a new top-level window for each batch
-    window = tk.Toplevel()
-    window.title(window_title)
-
-    canvas = tk.Canvas(window)
-    scrollbar = tk.Scrollbar(window, orient="vertical", command=canvas.yview)
-    scrollable_frame = tk.Frame(canvas)
-
-    scrollable_frame.bind(
-        "<Configure>",
-        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-    )
-
-    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-    canvas.configure(yscrollcommand=scrollbar.set)
-
-    canvas.pack(side="left", fill="both", expand=True)
-    scrollbar.pack(side="right", fill="y")
-
-    # Embed figures in the scrollable frame
-    for fig in figures:
-        canvas_widget = FigureCanvasTkAgg(fig, master=scrollable_frame)
-        canvas_widget.get_tk_widget().pack()
-
-
-def plot_fixed_param_grouped(data, fixed_param, param_name, other_param_name, title_prefix):
-    """
-    Plots grouped graphs with tables below them, batching 5 graphs per window.
-    """
+def plot_fixed_param_grouped(data, fixed_param, param_name, other_param_name, title_prefix, save_path=None):
     unique_values = sorted(data[fixed_param].unique())
-    batch_size = 5  # Number of graphs per window
-    figures = []
-    window_count = 0  # Track number of windows created
+    batch_size = 28  # Number of graphs per combined figure
+    window_count = 0  # Counter for output image files
 
-    for i, value in enumerate(unique_values):
-        # Filter subset data
-        subset = data[data[fixed_param] == value]
+    for batch_start in range(0, len(unique_values), batch_size):
+        batch_values = unique_values[batch_start:batch_start + batch_size]
 
-        # Create a new figure for each graph-table pair
-        fig = plt.figure(figsize=(8, 6))
-        gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])  # Allocate space for graph and table
+        # Create one big figure per batch
+        fig = plt.figure(figsize=(12, len(batch_values) * 8))  # More vertical space per plot-table pair
+        outer_grid = gridspec.GridSpec(len(batch_values) * 2, 1)  # 2 rows per value: one for plot, one for table
 
-        # Plot graph
-        ax1 = plt.subplot(gs[0])
-        ax1.plot(subset['time'], subset['V(output)'], label=f"{fixed_param}={value}")
-        ax1.set_ylabel("V(output)")
-        ax1.set_xlabel("Time (s)")
-        ax1.set_title(f"{title_prefix}\n{fixed_param}={value}")
-        ax1.grid()
-        ax1.legend()
+        for i, value in enumerate(batch_values):
+            subset = data[data[fixed_param] == value]
 
-        # Add table below the graph
-        ax2 = plt.subplot(gs[1])
-        ax2.axis("off")  # Hide axes for the table
+            # Plot
+            ax_plot = plt.Subplot(fig, outer_grid[i * 2])
+            ax_plot.plot(subset['time'], subset['V(output)'], label=f"{fixed_param}={value}")
+            ax_plot.set_ylabel("V(output)")
+            ax_plot.set_xlabel("Time (s)")
+            ax_plot.set_title(f"{title_prefix} | {fixed_param}={value}")
+            ax_plot.grid()
+            ax_plot.legend()
+            fig.add_subplot(ax_plot)
 
-        # Select 10 evenly spaced rows from the subset
-        num_rows = 10
-        if len(subset) > num_rows:
-            indices = np.linspace(0, len(subset) - 1, num_rows, dtype=int)
-            table_data = subset.iloc[indices][['time', 'V(output)']]
-        else:
-            table_data = subset[['time', 'V(output)']]  # Fallback for small datasets
+            # Table
+            ax_table = plt.Subplot(fig, outer_grid[i * 2 + 1])
+            ax_table.axis("off")
 
-        table = ax2.table(
-            cellText=table_data.values,
-            colLabels=table_data.columns,
-            cellLoc='center',
-            loc='center'
-        )
-        table.auto_set_font_size(False)
-        table.set_fontsize(8)
-        table.scale(1, 1.5)  # Adjust table size
+            # Select up to 10 rows for the table
+            num_rows = 10
+            if len(subset) > num_rows:
+                indices = np.linspace(0, len(subset) - 1, num_rows, dtype=int)
+                raw_table_data = subset.iloc[indices][['time', 'V(output)']]
+            else:
+                raw_table_data = subset[['time', 'V(output)']]
 
-        plt.tight_layout()
-        figures.append(fig)  # Add figure to list
+            formatted_data = raw_table_data.apply(lambda col: col.map(lambda x: f"{x:.3g}"))
+            table = ax_table.table(
+                cellText=formatted_data.values,
+                colLabels=formatted_data.columns,
+                cellLoc='center',
+                loc='center'
+            )
+            table.auto_set_font_size(False)
+            table.set_fontsize(12)
+            table.scale(1.2, 1.4)
+            for key, cell in table.get_celld().items():
+                if key[0] == 0:
+                    cell.set_text_props(weight='bold')
 
-        # Display figures in batches of 5
-        if len(figures) == batch_size or i == len(unique_values) - 1:
-            window_count += 1
-            window_title = f"{title_prefix} - Window {window_count}"
-            display_graphs_with_scroll(figures, window_title)  # Display batch
-            figures = []  # Reset batch
+            fig.add_subplot(ax_table)
 
-    # Prevent individual windows from opening
-    plt.close('all')
+        # Save the combined figure
+        os.makedirs(save_path, exist_ok=True)
+        window_count += 1
+        batch_name = title_prefix.replace(" | ", "_").replace(":", "").replace(" ", "_")
+        fig_filename = f"{batch_name}.png"
+        fig_path = os.path.join(save_path, fig_filename)
+        fig.tight_layout(pad=4.0, h_pad=3.0)  # Adds padding between rows
+        fig.savefig(fig_path)
+        print(f"Saved combined batch image: {fig_path}")
+        plt.close(fig)
 
 def train_model(data, target_columns, transistor_name, output_path):
     # Ensure numeric data
@@ -260,8 +244,7 @@ def train_model(data, target_columns, transistor_name, output_path):
 
     # Display and export average metrics
     print(f"\nAverage Metrics for {transistor_name}:\n", average_metrics)
-
-
+    
 def train_model_epoch(data, target_columns, transistor_name, output_path, n_epochs=30): 
     data = data.apply(pd.to_numeric, errors="coerce")
     data = data.dropna()
@@ -286,26 +269,22 @@ def train_model_epoch(data, target_columns, transistor_name, output_path, n_epoc
     epoch_mae, epoch_rmse, epoch_r2, epoch_mae_on, epoch_mae_off = [], [], [], [], []
     
     for epoch in range(1, n_epochs + 1):
-        # Simulate early training by using the first 'epoch' fraction of the data
         fraction = epoch / n_epochs
-        model.fit(X_train[:int(fraction * len(X_train))], y_train[:int(fraction * len(y_train))])
+        train_size = max(10, int(fraction * len(X_train)))  # Prevent zero-length slices
+        model.fit(X_train[:train_size], y_train[:train_size])
 
-        # Predict on test data
         y_pred = model.predict(X_test)
 
-        # Evaluate performance
         mae = mean_absolute_error(y_test, y_pred)
         rmse = np.sqrt(mean_squared_error(y_test, y_pred))
         r2 = r2_score(y_test, y_pred)
 
-        # Condition-based MAE (on and off)
         threshold = 2.5
         on_mask = y_test >= threshold
         off_mask = y_test < threshold
         mae_on = mean_absolute_error(y_test[on_mask], y_pred[on_mask])
         mae_off = mean_absolute_error(y_test[off_mask], y_pred[off_mask])
 
-        # Store the metrics for the current epoch
         epoch_mae.append(mae)
         epoch_rmse.append(rmse)
         epoch_r2.append(r2)
@@ -313,66 +292,81 @@ def train_model_epoch(data, target_columns, transistor_name, output_path, n_epoc
         epoch_mae_off.append(mae_off)
 
         print(f"Epoch {epoch}/{n_epochs} - MAE: {mae:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}, MAE On: {mae_on:.4f}, MAE Off: {mae_off:.4f}")
-        
-    # Plot training results (Figures 7, 8, 9)
-    plt.figure(figsize=(12, 8))
 
-    #Early Training (Epochs 1–4)
-    plt.subplot(2, 2, 1)
+    # Font settings
+    title_font = {'fontsize': 18, 'fontweight': 'bold'}
+    label_font = {'fontsize': 16, 'fontweight': 'bold'}
+    tick_fontsize = 14
+    legend_fontsize = 14
+
+    plt.figure(figsize=(10, 6))
     plt.plot(range(1, 5), epoch_mae[:4], label='MAE')
     plt.plot(range(1, 5), epoch_rmse[:4], label='RMSE', color='red')
     plt.plot(range(1, 5), epoch_r2[:4], label='R²', color='green')
     plt.plot(range(1, 5), epoch_mae_on[:4], label='MAE On', color='blue')
     plt.plot(range(1, 5), epoch_mae_off[:4], label='MAE Off', color='orange')
-    plt.title(f'Early Training (Epochs 1–4) for {transistor_name}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Metrics')
-    plt.legend()
+    plt.title(f'Early Training (Epochs 1–4) for {transistor_name}', **title_font)
+    plt.xlabel('Epoch', **label_font)
+    plt.ylabel('Metrics', **label_font)
+    plt.xticks(fontsize=tick_fontsize)
+    plt.yticks(fontsize=tick_fontsize)
+    plt.legend(fontsize=legend_fontsize)
     plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-    #Final Training (Epochs 28–30)
-    plt.subplot(2, 2, 2)
+
+    plt.figure(figsize=(10, 6))
     plt.plot(range(28, 31), epoch_mae[27:30], label='MAE')
     plt.plot(range(28, 31), epoch_rmse[27:30], label='RMSE', color='red')
     plt.plot(range(28, 31), epoch_r2[27:30], label='R²', color='green')
     plt.plot(range(28, 31), epoch_mae_on[27:30], label='MAE On', color='blue')
     plt.plot(range(28, 31), epoch_mae_off[27:30], label='MAE Off', color='orange')
-    plt.title(f'Final Training (Epochs 28–30) for {transistor_name}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Metrics')
-    plt.legend()
+    plt.title(f'Final Training (Epochs 28–30) for {transistor_name}', **title_font)
+    plt.xlabel('Epoch', **label_font)
+    plt.ylabel('Metrics', **label_font)
+    plt.xticks(fontsize=tick_fontsize)
+    plt.yticks(fontsize=tick_fontsize)
+    plt.legend(fontsize=legend_fontsize)
     plt.grid(True)
-
-    #Accuracy and Loss (Epochs 1–30)
-    plt.subplot(2, 2, 3)
-    plt.plot(range(1, n_epochs + 1), epoch_r2, label='R²', color='green')
-    plt.plot(range(1, n_epochs + 1), epoch_mae, label='MAE')
-    plt.plot(range(1, n_epochs + 1), epoch_rmse, label='RMSE', color='red')
-    plt.plot(range(1, n_epochs + 1), epoch_mae_on, label='MAE On', color='blue')
-    plt.plot(range(1, n_epochs + 1), epoch_mae_off, label='MAE Off', color='orange')
-    plt.title(f'Accuracy and Loss (Epochs 1–30) for {transistor_name}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Metrics')
-    plt.legend()
-    plt.grid(True)
-
-    #Validation Performance (Epochs 1–30)
-    plt.subplot(2, 2, 4)
-    plt.plot(range(1, n_epochs + 1), epoch_r2, label='R²', color='green')
-    plt.plot(range(1, n_epochs + 1), epoch_mae, label='MAE')
-    plt.plot(range(1, n_epochs + 1), epoch_rmse, label='RMSE', color='red')
-    plt.plot(range(1, n_epochs + 1), epoch_mae_on, label='MAE On', color='blue')
-    plt.plot(range(1, n_epochs + 1), epoch_mae_off, label='MAE Off', color='orange')
-    plt.title(f'Validation Performance (Epochs 1–30) for {transistor_name}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Metrics')
-    plt.legend()
-    plt.grid(True)
-
     plt.tight_layout()
     plt.show()
 
-    # Export results to CSV
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, n_epochs + 1), epoch_r2, label='R²', color='green')
+    plt.plot(range(1, n_epochs + 1), epoch_mae, label='MAE')
+    plt.plot(range(1, n_epochs + 1), epoch_rmse, label='RMSE', color='red')
+    plt.plot(range(1, n_epochs + 1), epoch_mae_on, label='MAE On', color='blue')
+    plt.plot(range(1, n_epochs + 1), epoch_mae_off, label='MAE Off', color='orange')
+    plt.title(f'Accuracy and Loss (Epochs 1–30) for {transistor_name}', **title_font)
+    plt.xlabel('Epoch', **label_font)
+    plt.ylabel('Metrics', **label_font)
+    plt.xticks(fontsize=tick_fontsize)
+    plt.yticks(fontsize=tick_fontsize)
+    plt.legend(fontsize=legend_fontsize)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+  
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, n_epochs + 1), epoch_r2, label='R²', color='green')
+    plt.plot(range(1, n_epochs + 1), epoch_mae, label='MAE')
+    plt.plot(range(1, n_epochs + 1), epoch_rmse, label='RMSE', color='red')
+    plt.plot(range(1, n_epochs + 1), epoch_mae_on, label='MAE On', color='blue')
+    plt.plot(range(1, n_epochs + 1), epoch_mae_off, label='MAE Off', color='orange')
+    plt.title(f'Validation Performance (Epochs 1–30) for {transistor_name}', **title_font)
+    plt.xlabel('Epoch', **label_font)
+    plt.ylabel('Metrics', **label_font)
+    plt.xticks(fontsize=tick_fontsize)
+    plt.yticks(fontsize=tick_fontsize)
+    plt.legend(fontsize=legend_fontsize)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    # Save CSV
     results_df = pd.DataFrame({
         'Epoch': range(1, n_epochs + 1),
         'MAE': epoch_mae,
@@ -385,7 +379,6 @@ def train_model_epoch(data, target_columns, transistor_name, output_path, n_epoc
     os.makedirs(output_path, exist_ok=True)
     results_df.to_csv(os.path.join(output_path, f"{transistor_name}_training_metrics.csv"), index=False)
     print(f"Training metrics exported to {output_path}")
-
 
 
 def find_nearest_index(data, value):
@@ -519,8 +512,6 @@ def summarize_and_compare(data, output_path, transistor_name):
     print("Results exported successfully to:", output_path)
 
 
-
-
 def compare_and_plot(data_ns, data_fs):
     # Add transistor type for clarity if not already present
     data_ns['Transistor'] = 'Nanosheet'
@@ -538,7 +529,7 @@ def compare_and_plot(data_ns, data_fs):
     plt.legend()
     plt.grid()
     plt.show()
-    
+
     
 # Function to export results to CSV
 def export_file(data, test_name,output_path):
@@ -546,6 +537,8 @@ def export_file(data, test_name,output_path):
     print(f"{test_name} data exported to {output_path}")
 
 def main():
+        plot_save_path = "C:\\Users\\19562\\Downloads\\stats_summary_data\\plots"
+
         # Load and process data for NS and FS transistors
         print("Loading and processing nanosheet data...")
         data_ns = load_and_process_data(test_files[0], expected_columns)
@@ -573,26 +566,31 @@ def main():
         for fixed_length in unique_lengths_ns:
             subset = data_ns_cleaned[data_ns_cleaned['L'] == fixed_length]
             title_prefix = f"Nanosheet | Fixed Length: {fixed_length:.2e}"
-            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix)
+            save_path = os.path.join(plot_save_path, "Nanosheet_Fixed_Length")
+            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix, save_path=save_path)
 
         print("Generating fixed length plots for forksheet...")
         for fixed_length in unique_lengths_fs:
             subset = data_fs_cleaned[data_fs_cleaned['L'] == fixed_length]
             title_prefix = f"Forksheet | Fixed Length: {fixed_length:.2e}"
-            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix)
+            save_path = os.path.join(plot_save_path, "Forksheet_Fixed_Length")
+            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix, save_path=save_path)
 
         # Plot for each unique width with varying lengths for NS and FS
         print("Generating fixed width plots for nanosheet...")
         for fixed_width in unique_widths_ns:
             subset = data_ns_cleaned[data_ns_cleaned['W'] == fixed_width]
             title_prefix = f"Nanosheet | Fixed Width: {fixed_width:.2e}"
-            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix)
+            save_path = os.path.join(plot_save_path, "Nanosheet_Fixed_Width")
+            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix, save_path=save_path)
 
         print("Generating fixed width plots for forksheet...")
         for fixed_width in unique_widths_fs:
             subset = data_fs_cleaned[data_fs_cleaned['W'] == fixed_width]
             title_prefix = f"Forksheet | Fixed Width: {fixed_width:.2e}"
-            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix)
+            save_path = os.path.join(plot_save_path, "Forksheet_Fixed_Width")
+            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix, save_path=save_path)
+
         
 
         # Define target columns for prediction
@@ -605,9 +603,10 @@ def main():
         print("\nTraining models for nanosheet data...")
         train_model(data_ns, target_columns,"Nanosheet",output_path)
         train_model_epoch(data_ns, target_columns,"Nanosheet",output_path)
-        print("\nTraining models for forksheet data...")
+        print("Training models for forksheet data...")
         train_model(data_fs, target_columns,"Forksheet",output_path)
         train_model_epoch(data_fs, target_columns,"Forksheet",output_path)
+
         # Perform summary and comparison
         print("Summarizing and exporting results...")
         summarize_and_compare(data_ns,output_path,"Nanosheet")
@@ -615,9 +614,26 @@ def main():
         compare_and_plot(data_ns,data_fs)
 
 
-# Run the main function
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.withdraw()  # Hide the main root window
+
+    start_time = time.time()
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+
     main()
-    root.mainloop()
+
+    profiler.disable()
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"\nTotal execution time: {execution_time:.2f} seconds")
+
+    stats_filename = "profiling_results.prof"
+    profiler.dump_stats(stats_filename)
+
+    with open("profiling_summary.txt", "w") as f:
+        stats = pstats.Stats(stats_filename, stream=f)
+        stats.strip_dirs().sort_stats("cumulative").print_stats(20)
+
+    print("\nProfiling complete! Results saved to 'profiling_results.prof' and 'profiling_summary.txt'.")
