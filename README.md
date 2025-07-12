@@ -1,112 +1,81 @@
-Forksheet and Nanosheet Transistor Simulation
+# Forksheet and Nanosheet Simulation Repository
 
 Welcome to the Forksheet and Nanosheet Simulation repository. This project provides tools to simulate and analyze nanosheet and forksheet transistor designs using LTSpice and Python.
 
-📁 Repository Contents
+---
 
-simulation.py – Python script for processing LTSpice simulation data, generating graphs, calculating transistor performance, and training machine learning models.
+## Repository Contents
 
-Simulation_with_epoch.py – Variant of the main script that includes performance tracking across training epochs.
+- **simulation.py**: A Python script for processing and analyzing LTSpice simulation data, generating visualizations, and evaluating transistor performance metrics.  
+- **nanosheet_circuit.asc**: LTSpice schematic for nanosheet transistor simulations.  
+- **forksheet_circuit.asc**: LTSpice schematic for forksheet transistor simulations.  
+- **Simulation_with_epoch.py**: Python script similar to `simulation.py` with additional model training checkpoints and performance visualizations over epochs.  
+- **data_set folder**: Contains `nanosheet_circuit.txt` and `forksheet_circuit.txt` — LTSpice simulation data files for each transistor used as input for the Python scripts.
 
-nanosheet_circuit.asc – LTSpice schematic for nanosheet transistor.
+---
 
-forksheet_circuit.asc – LTSpice schematic for forksheet transistor.
+## Prerequisites
 
-data_set/ – Folder containing:
+Before using this repository, ensure the following are installed on your system:
 
-nanosheet_circuit.txt
+1. **Python**  
+   - Download from [python.org](https://www.python.org/downloads/)  
+   - Follow installation instructions, making sure to add Python to your system’s PATH  
+   - Verify installation by running:  
+     ```bash
+     python --version
+     ```
+2. **LTSpice**  
+   - Download from [LTSpice Download Page](https://ez.analog.com/design-tools-and-calculators/ltspice/w/faqs-docs/32232/ltspice-24-download-and-release-notes)  
+   - Follow installation instructions and verify by launching LTSpice.
 
-forksheet_circuit.txt
+3. **Required Python Libraries**  
+   Install the necessary libraries using:  
+   ```bash
+   pip install pandas numpy matplotlib scikit-learn
 
-⚙️ Prerequisites
+## Step 1: LTSpice Simulations
 
-1. Python
+- Open LTSpice and navigate to **File > Open**.  
+- Load the circuit file `nanosheet_circuit.asc`.  
+- Click the **Run** button (running man icon) or press `Alt + R` to simulate.  
+- Use the probe tool to click on the output node and visualize waveforms.  
+- Export the simulation data:  
+  - Right-click on the waveform window → **Export Data** → save as `.txt`.  
+- Repeat the above steps for `forksheet_circuit.asc`.  
 
-Download: python.org
+## Step 2: Python Analysis
 
-Add Python to your system PATH
+- Open `simulation.py` in your Python IDE (e.g., IDLE).  
+- Update the file paths in the `test_files` list to point to your own `.txt` simulation data files exported from LTSpice.  
+  - Use double backslashes (`\\`) on Windows or forward slashes (`/`) on macOS/Linux.  
+- Check the `expected_columns` section to ensure your file names and column headers (e.g., `["time", "V(output)"]`) match your `.txt` files.  
+- Set output folder paths in the `main()` function:  
+  - `plot_save_path` → folder to save generated images  
+  - `output_path` → folder to save CSV results  
+- Run the script:  
+  - In IDLE, navigate to **Run > Run Module** or press `F5`.  
 
-Verify: python --version or python3 --version
+## Outputs
 
-2. LTSpice
+The script will:
 
-Download: LTSpice Download Page
+- **Create graphs and tables**  
+  It generates voltage vs. time plots and sample data tables grouped into images (28 plots per image), saving them to your specified folder.  
 
-Install and verify LTSpice runs successfully
+- **Calculate and save transistor performance metrics**  
+  Measures rise time, fall time, propagation delay, and minimum/maximum voltages, saving results as CSV files.  
 
-3. Required Python Libraries
+- **Train a machine learning model**  
+  Uses a Random Forest model to predict voltage behavior, evaluates using MAE, RMSE, R², and exports evaluation results as CSV files.  
 
-pip install pandas numpy matplotlib scikit-learn
+## About Simulation_with_epoch.py
 
-LTSpice Simulation Setup
+This version trains the model over 30 epochs and shows 4 performance graphs.
 
-Open LTSpice > File > Open > Select nanosheet_circuit.asc
+⚠️ **Important:** You need to close each graph window one by one to continue to the next.
 
-Run the simulation (Alt + R or "running man" icon)
+## Notes
 
-Use the probe tool to select the output node and generate a waveform
-
-Export waveform data:
-
-Right-click waveform window > Export Data > Save as .txt
-
-Repeat for forksheet_circuit.asc
-
-Python Analysis Setup
-
-Open simulation.py in your Python environment or IDE
-
-Update test_files to point to your .txt files:
-
-Use \ for Windows, / for macOS/Linux
-
-Make sure the column headers in expected_columns match the headers in your .txt files (e.g., time, V(output))
-
-Set your output folders inside main():
-
-plot_save_path – Where images will be saved
-
-output_path – Where results and CSVs will go
-
-Run the script (F5 in IDLE or your editor’s run command)
-
-Outputs
-
-From simulation.py
-
-Creates Graphs and Tables
-
-Generates voltage vs. time plots and sample data tables
-
-Combines 28 per image and saves to folder
-
-Calculates Transistor Performance
-
-Measures rise/fall times, propagation delay, voltage range
-
-Saves results as .csv files
-
-Trains Machine Learning Model
-
-Uses Random Forest to predict behavior
-
-Exports metrics like MAE, RMSE, R² to .csv
-
-From Simulation_with_epoch.py
-
-Same process as simulation.py, but trains the model in 30 steps (epochs)
-
-Shows 4 different metric graphs for early and late training stages
-
-⚠️ You must close each graph window manually to proceed to the next
-
- Notes
-
-Double-check column names and paths if errors occur
-
-Make sure LTSpice-exported .txt files are clean and formatted properly
-
-Consider adding graphs of nanosheet vs forksheet comparisons and transistor evolution timelines for visual insight
-
-Happy simulating!
-
+- If you encounter errors about missing columns or incorrect file paths, make sure your LTSpice-exported `.txt` files are correctly formatted and update the paths in `simulation.py`.  
+- You can add visual figures comparing nanosheet and forksheet designs or transistor evolution timelines to your analysis workflow for enhanced insights.
