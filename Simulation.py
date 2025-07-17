@@ -22,11 +22,12 @@ import time
 import cProfile
 import pstats
 
+stats_summary_folder = "C:\\Users\\19562\\Downloads\\stats_summary_data" #Keep the \\stats_summary_data as its the folder where everything will be saved
 
 # Corrected file paths and column names
 expected_columns = {
-    "forksheet_circuit": ["time", "V(output)"],
-    "nanosheet_circuit": ["time", "V(output)"]  # Ensure the name is consistent with the path
+    "nanosheet_circuit": ["time", "V(output)"],
+    "forksheet_circuit": ["time", "V(output)"]  # Ensure the name is consistent with the path
 }
 
 # Test files with the correct path
@@ -249,6 +250,7 @@ def train_model(data, target_columns, transistor_name, output_path):
 
     # Display and export average metrics
     print(f"\nAverage Metrics for {transistor_name}:\n", average_metrics)
+
     
 def find_nearest_index(data, value):
     """Find the index of the nearest value in the data array."""
@@ -406,7 +408,7 @@ def export_file(data, test_name,output_path):
     print(f"{test_name} data exported to {output_path}")
 
 def main():
-        plot_save_path = "C:\\Users\\19562\\Downloads\\stats_summary_data\\plots"
+        plot_save_path = os.path.join(stats_summary_folder, "plots")
 
         # Load and process data for NS and FS transistors
         print("Loading and processing nanosheet data...")
@@ -466,11 +468,12 @@ def main():
         target_columns = ['V(output)']
 
         # Define output directory
-        output_path = "C:\\Users\\19562\\Downloads\\stats_summary_data"
+        output_path = stats_summary_folder
         
         # Train models for NS and FS datasets
         print("\nTraining models for nanosheet data...")
         train_model(data_ns, target_columns,"Nanosheet",output_path)
+
         print("Training models for forksheet data...")
         train_model(data_fs, target_columns,"Forksheet",output_path)
 
@@ -496,11 +499,14 @@ if __name__ == "__main__":
     execution_time = end_time - start_time
     print(f"\nTotal execution time: {execution_time:.2f} seconds")
 
-    stats_filename = "profiling_results.prof"
-    profiler.dump_stats(stats_filename)
+    profiling_path = os.path.join(stats_summary_folder, "profiling_results.prof")
+    summary_path = os.path.join(stats_summary_folder, "profiling_summary.txt")
 
-    with open("profiling_summary.txt", "w") as f:
-        stats = pstats.Stats(stats_filename, stream=f)
+    profiler.dump_stats(profiling_path)
+
+    with open(summary_path, "w") as f:
+        stats = pstats.Stats(profiling_path, stream=f)
         stats.strip_dirs().sort_stats("cumulative").print_stats(20)
+
 
     print("\nProfiling complete! Results saved to 'profiling_results.prof' and 'profiling_summary.txt'.")
