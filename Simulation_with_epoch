@@ -22,18 +22,20 @@ import time
 import cProfile
 import pstats
 
+stats_summary_folder = "C:\\Users\\19562\\Downloads\\stats_summary_data" #Keep the \\stats_summary_data as its the folder where everything will be saved
 
 # Corrected file paths and column names
 expected_columns = {
-    "forksheet_circuit": ["time", "V(output)"],
-    "nanosheet_circuit": ["time", "V(output)"]  # Ensure the name is consistent with the path
+    "nanosheet_circuit": ["time", "V(output)"],
+    "forksheet_circuit": ["time", "V(output)"]  # Ensure the name is consistent with the path
 }
 
 # Test files with the correct path
 test_files = [
-    "C:\\Users\\19562\\Downloads\\forksheet_circuit.txt",  
-    "C:\\Users\\19562\\Downloads\\nanosheet_circuit.txt"   
+    "C:\\Users\\19562\\Downloads\\nanosheet_circuit.txt",   
+    "C:\\Users\\19562\\Downloads\\forksheet_circuit.txt"    
 ]
+
 
 # Helper function to replace units
 def replace_units(value):
@@ -89,10 +91,14 @@ def clean_and_normalize(data):
     data[numeric_data.columns] = numeric_data
     return data
 
-def plot_fixed_param_grouped(data, fixed_param, param_name, other_param_name, title_prefix, save_path=None):
+def plot_fixed_param_grouped(data, fixed_param, param_name, other_param_name, title_prefix, save_path=None, transistor_name=None):
+    if transistor_name:
+        data = data[data["Transistor"] == transistor_name]
+        
     unique_values = sorted(data[fixed_param].unique())
     batch_size = 28  # Number of graphs per combined figure
     window_count = 0  # Counter for output image files
+
 
     for batch_start in range(0, len(unique_values), batch_size):
         batch_values = unique_values[batch_start:batch_start + batch_size]
@@ -244,7 +250,8 @@ def train_model(data, target_columns, transistor_name, output_path):
 
     # Display and export average metrics
     print(f"\nAverage Metrics for {transistor_name}:\n", average_metrics)
-    
+
+
 def train_model_epoch(data, target_columns, transistor_name, output_path, n_epochs=30): 
     data = data.apply(pd.to_numeric, errors="coerce")
     data = data.dropna()
@@ -265,6 +272,10 @@ def train_model_epoch(data, target_columns, transistor_name, output_path, n_epoc
     # Split data for training
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+    split_idx = int(0.1 * len(X_train))
+    X_train = X_train[:split_idx]
+    y_train = y_train[:split_idx]
+    
     # Metrics containers
     epoch_mae, epoch_rmse, epoch_r2, epoch_mae_on, epoch_mae_off = [], [], [], [], []
     
@@ -299,6 +310,7 @@ def train_model_epoch(data, target_columns, transistor_name, output_path, n_epoc
     tick_fontsize = 14
     legend_fontsize = 14
 
+    
     plt.figure(figsize=(10, 6))
     plt.plot(range(1, 5), epoch_mae[:4], label='MAE')
     plt.plot(range(1, 5), epoch_rmse[:4], label='RMSE', color='red')
@@ -379,8 +391,7 @@ def train_model_epoch(data, target_columns, transistor_name, output_path, n_epoc
     os.makedirs(output_path, exist_ok=True)
     results_df.to_csv(os.path.join(output_path, f"{transistor_name}_training_metrics.csv"), index=False)
     print(f"Training metrics exported to {output_path}")
-
-
+    
 def find_nearest_index(data, value):
     """Find the index of the nearest value in the data array."""
     return np.abs(data - value).argmin()
@@ -537,7 +548,7 @@ def export_file(data, test_name,output_path):
     print(f"{test_name} data exported to {output_path}")
 
 def main():
-        plot_save_path = "C:\\Users\\19562\\Downloads\\stats_summary_data\\plots"
+        plot_save_path = os.path.join(stats_summary_folder, "plots")
 
         # Load and process data for NS and FS transistors
         print("Loading and processing nanosheet data...")
@@ -597,12 +608,13 @@ def main():
         target_columns = ['V(output)']
 
         # Define output directory
-        output_path = "C:\\Users\\19562\\Downloads\\stats_summary_data"
+        output_path = stats_summary_folder
         
         # Train models for NS and FS datasets
         print("\nTraining models for nanosheet data...")
         train_model(data_ns, target_columns,"Nanosheet",output_path)
         train_model_epoch(data_ns, target_columns,"Nanosheet",output_path)
+
         print("Training models for forksheet data...")
         train_model(data_fs, target_columns,"Forksheet",output_path)
         train_model_epoch(data_fs, target_columns,"Forksheet",output_path)
@@ -629,11 +641,14 @@ if __name__ == "__main__":
     execution_time = end_time - start_time
     print(f"\nTotal execution time: {execution_time:.2f} seconds")
 
-    stats_filename = "profiling_results.prof"
-    profiler.dump_stats(stats_filename)
+    profiling_path = os.path.join(stats_summary_folder, "profiling_results.prof")
+    summary_path = os.path.join(stats_summary_folder, "profiling_summary.txt")
 
-    with open("profiling_summary.txt", "w") as f:
-        stats = pstats.Stats(stats_filename, stream=f)
+    profiler.dump_stats(profiling_path)
+
+    with open(summary_path, "w") as f:
+        stats = pstats.Stats(profiling_path, stream=f)
         stats.strip_dirs().sort_stats("cumulative").print_stats(20)
+
 
     print("\nProfiling complete! Results saved to 'profiling_results.prof' and 'profiling_summary.txt'.")
