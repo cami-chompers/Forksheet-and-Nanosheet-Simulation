@@ -39,7 +39,8 @@ Before using this repository, ensure the following are installed on your system:
 - Open LTSpice and navigate to **File > Open**.  
 - Load the circuit file `nanosheet_circuit.asc`.  
 - Click the **Run** button (running man icon) or press `Alt + R` to simulate.  
-- Use the probe tool to click on the output node and visualize waveforms.  
+- Use the probe tool to click on the output node and visualize waveforms.
+     -⚠️ **Important:** Epilepsy warning as the waveform switches color at a fast speed.  
 - Export the simulation data:  
   - Right-click on the waveform window → **Export Data** → save as `.txt`.  
 - Repeat the above steps for `forksheet_circuit.asc`.  
@@ -50,9 +51,7 @@ Before using this repository, ensure the following are installed on your system:
 - Update the file paths in the `test_files` list to point to your own `.txt` simulation data files exported from LTSpice.  
   - Use double backslashes (`\\`) on Windows or forward slashes (`/`) on macOS/Linux.  
 - Check the `expected_columns` section to ensure your file names and column headers (e.g., `["time", "V(output)"]`) match your `.txt` files.  
-- Set output folder paths in the `main()` function:  
-  - `plot_save_path` → folder to save generated images  
-  - `output_path` → folder to save CSV results  
+- Set output folder paths in the global variable of stats_summary_folder, but don't change the "\\stats_summary_data" of the variable as it will be the name of the folder which stores the outputs:    
 - Run the script:  
   - In IDLE, navigate to **Run > Run Module** or press `F5`.  
 
@@ -73,7 +72,7 @@ The script will:
 
 This version trains the model over 30 epochs and shows 4 performance graphs.
 
-⚠️ **Important:** You need to close each graph window one by one to continue to the next.
+⚠️ **Important:** You need to close each graph window one by one to continue to the next. There will be 8 performance graphs total, 4 for each transistor.
 
 ## Notes
 
