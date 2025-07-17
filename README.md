@@ -11,6 +11,7 @@ Welcome to the Forksheet and Nanosheet Simulation repository. This project provi
 - **forksheet_circuit.asc**: LTSpice schematic for forksheet transistor simulations.  
 - **Simulation_with_epoch.py**: Python script similar to `simulation.py` with additional model training checkpoints and performance visualizations over epochs.  
 - **data_set folder**: Contains `nanosheet_circuit.txt` and `forksheet_circuit.txt` — LTSpice simulation data files for each transistor used as input for the Python scripts.
+- **data_summary folder**: Excel documents for all of the outputs for each transistor. Minimums, maximums, and averages are calculated at the bottom of the Excel document.
 
 ---
 
