@@ -39,8 +39,7 @@ Before using this repository, ensure the following are installed on your system:
 - Open LTSpice and navigate to **File > Open**.  
 - Load the circuit file `nanosheet_circuit.asc`.  
 - Click the **Run** button (running man icon) or press `Alt + R` to simulate.  
-- Use the probe tool to click on the output node and visualize waveforms.
-     -⚠️ **Important:** Epilepsy warning as the waveform switches color at a fast speed.  
+- Use the probe tool to click on the output node and visualize waveforms⚠️ **Important:** Epilepsy warning as the waveform switches color at a fast speed.  
 - Export the simulation data:  
   - Right-click on the waveform window → **Export Data** → save as `.txt`.  
 - Repeat the above steps for `forksheet_circuit.asc`.  
