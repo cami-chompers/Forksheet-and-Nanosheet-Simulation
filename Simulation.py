@@ -1,27 +1,40 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+plt.rcParams.update({
+    'font.size': 15,           # Increase default font size
+    'font.weight': 'bold',     # Make fonts bold by default
+    'axes.titlesize': 15,
+    'axes.labelsize': 15,
+    'axes.labelweight': 'bold',
+    'xtick.labelsize': 15,
+    'ytick.labelsize': 15,
+    'legend.fontsize': 15,
+    'figure.titlesize': 15
+})
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import os
 from sklearn.preprocessing import MinMaxScaler
-import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.gridspec as gridspec
+import time
+import cProfile
+import pstats
 
 
 # Corrected file paths and column names
 expected_columns = {
-    "FS_draft (1)": ["time", "V(output)"],
-    "NS_draft (1)": ["time", "V(output)"]  # Ensure the name is consistent with the path
+    "forksheet_circuit": ["time", "V(output)"],
+    "nanosheet_circuit": ["time", "V(output)"]  # Ensure the name is consistent with the path
 }
 
 # Test files with the correct path
 test_files = [
-    "C:\\Users\\19562\Downloads\\NS_draft (1).txt",  # Corrected path
-    "C:\\Users\\19562\Downloads\\FS_draft (1).txt"   # Corrected path
+    "C:\\Users\\19562\\Downloads\\nanosheet_circuit.txt",   
+    "C:\\Users\\19562\\Downloads\\forksheet_circuit.txt"    
 ]
+
 
 # Helper function to replace units
 def replace_units(value):
@@ -29,7 +42,7 @@ def replace_units(value):
 
 # Function to load and process each file
 def load_and_process_data(file_path, expected_columns):
-    file_name = os.path.basename(file_path).split('.')[0]  # Extract file name without extension
+    file_name = os.path.basename(file_path).split('.')[0]
     
     # Check if the file corresponds to the expected columns
     if file_name not in expected_columns:
@@ -61,7 +74,6 @@ def load_and_process_data(file_path, expected_columns):
                 else:
                     current_step = False  # Stop if the step block ends
 
-    # Convert combined data to DataFrame
     columns = expected_columns[file_name] + ['L', 'W']
     data = pd.DataFrame(all_data, columns=columns).astype(float)
     return data
@@ -78,96 +90,73 @@ def clean_and_normalize(data):
     data[numeric_data.columns] = numeric_data
     return data
 
-
-def display_graphs_with_scroll(figures, window_title):
-    """
-    Displays a batch of figures in a scrollable tkinter window.
-    """
-    # Create a new top-level window for each batch
-    window = tk.Toplevel()
-    window.title(window_title)
-
-    canvas = tk.Canvas(window)
-    scrollbar = tk.Scrollbar(window, orient="vertical", command=canvas.yview)
-    scrollable_frame = tk.Frame(canvas)
-
-    scrollable_frame.bind(
-        "<Configure>",
-        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-    )
-
-    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-    canvas.configure(yscrollcommand=scrollbar.set)
-
-    canvas.pack(side="left", fill="both", expand=True)
-    scrollbar.pack(side="right", fill="y")
-
-    # Embed figures in the scrollable frame
-    for fig in figures:
-        canvas_widget = FigureCanvasTkAgg(fig, master=scrollable_frame)
-        canvas_widget.get_tk_widget().pack()
-
-
-def plot_fixed_param_grouped(data, fixed_param, param_name, other_param_name, title_prefix):
-    """
-    Plots grouped graphs with tables below them, batching 5 graphs per window.
-    """
+def plot_fixed_param_grouped(data, fixed_param, param_name, other_param_name, title_prefix, save_path=None, transistor_name=None):
+    if transistor_name:
+        data = data[data["Transistor"] == transistor_name]
+        
     unique_values = sorted(data[fixed_param].unique())
-    batch_size = 5  # Number of graphs per window
-    figures = []
-    window_count = 0  # Track number of windows created
+    batch_size = 28  # Number of graphs per combined figure
+    window_count = 0  # Counter for output image files
 
-    for i, value in enumerate(unique_values):
-        # Filter subset data
-        subset = data[data[fixed_param] == value]
 
-        # Create a new figure for each graph-table pair
-        fig = plt.figure(figsize=(8, 6))
-        gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])  # Allocate space for graph and table
+    for batch_start in range(0, len(unique_values), batch_size):
+        batch_values = unique_values[batch_start:batch_start + batch_size]
 
-        # Plot graph
-        ax1 = plt.subplot(gs[0])
-        ax1.plot(subset['time'], subset['V(output)'], label=f"{fixed_param}={value}")
-        ax1.set_ylabel("V(output)")
-        ax1.set_xlabel("Time (s)")
-        ax1.set_title(f"{title_prefix}\n{fixed_param}={value}")
-        ax1.grid()
-        ax1.legend()
+        # Create one big figure per batch
+        fig = plt.figure(figsize=(12, len(batch_values) * 8))  # More vertical space per plot-table pair
+        outer_grid = gridspec.GridSpec(len(batch_values) * 2, 1)  # 2 rows per value: one for plot, one for table
 
-        # Add table below the graph
-        ax2 = plt.subplot(gs[1])
-        ax2.axis("off")  # Hide axes for the table
+        for i, value in enumerate(batch_values):
+            subset = data[data[fixed_param] == value]
 
-        # Select 10 evenly spaced rows from the subset
-        num_rows = 10
-        if len(subset) > num_rows:
-            indices = np.linspace(0, len(subset) - 1, num_rows, dtype=int)
-            table_data = subset.iloc[indices][['time', 'V(output)']]
-        else:
-            table_data = subset[['time', 'V(output)']]  # Fallback for small datasets
+            # Plot
+            ax_plot = plt.Subplot(fig, outer_grid[i * 2])
+            ax_plot.plot(subset['time'], subset['V(output)'], label=f"{fixed_param}={value}")
+            ax_plot.set_ylabel("V(output)")
+            ax_plot.set_xlabel("Time (s)")
+            ax_plot.set_title(f"{title_prefix} | {fixed_param}={value}")
+            ax_plot.grid()
+            ax_plot.legend()
+            fig.add_subplot(ax_plot)
 
-        table = ax2.table(
-            cellText=table_data.values,
-            colLabels=table_data.columns,
-            cellLoc='center',
-            loc='center'
-        )
-        table.auto_set_font_size(False)
-        table.set_fontsize(8)
-        table.scale(1, 1.5)  # Adjust table size
+            # Table
+            ax_table = plt.Subplot(fig, outer_grid[i * 2 + 1])
+            ax_table.axis("off")
 
-        plt.tight_layout()
-        figures.append(fig)  # Add figure to list
+            # Select up to 10 rows for the table
+            num_rows = 10
+            if len(subset) > num_rows:
+                indices = np.linspace(0, len(subset) - 1, num_rows, dtype=int)
+                raw_table_data = subset.iloc[indices][['time', 'V(output)']]
+            else:
+                raw_table_data = subset[['time', 'V(output)']]
 
-        # Display figures in batches of 5
-        if len(figures) == batch_size or i == len(unique_values) - 1:
-            window_count += 1
-            window_title = f"{title_prefix} - Window {window_count}"
-            display_graphs_with_scroll(figures, window_title)  # Display batch
-            figures = []  # Reset batch
+            formatted_data = raw_table_data.apply(lambda col: col.map(lambda x: f"{x:.3g}"))
+            table = ax_table.table(
+                cellText=formatted_data.values,
+                colLabels=formatted_data.columns,
+                cellLoc='center',
+                loc='center'
+            )
+            table.auto_set_font_size(False)
+            table.set_fontsize(12)
+            table.scale(1.2, 1.4)
+            for key, cell in table.get_celld().items():
+                if key[0] == 0:
+                    cell.set_text_props(weight='bold')
 
-    # Prevent individual windows from opening
-    plt.close('all')
+            fig.add_subplot(ax_table)
+
+        # Save the combined figure
+        os.makedirs(save_path, exist_ok=True)
+        window_count += 1
+        batch_name = title_prefix.replace(" | ", "_").replace(":", "").replace(" ", "_")
+        fig_filename = f"{batch_name}.png"
+        fig_path = os.path.join(save_path, fig_filename)
+        fig.tight_layout(pad=4.0, h_pad=3.0)  # Adds padding between rows
+        fig.savefig(fig_path)
+        print(f"Saved combined batch image: {fig_path}")
+        plt.close(fig)
 
 def train_model(data, target_columns, transistor_name, output_path):
     # Ensure numeric data
@@ -260,9 +249,7 @@ def train_model(data, target_columns, transistor_name, output_path):
 
     # Display and export average metrics
     print(f"\nAverage Metrics for {transistor_name}:\n", average_metrics)
-
-
-
+    
 def find_nearest_index(data, value):
     """Find the index of the nearest value in the data array."""
     return np.abs(data - value).argmin()
@@ -419,6 +406,8 @@ def export_file(data, test_name,output_path):
     print(f"{test_name} data exported to {output_path}")
 
 def main():
+        plot_save_path = "C:\\Users\\19562\\Downloads\\stats_summary_data\\plots"
+
         # Load and process data for NS and FS transistors
         print("Loading and processing nanosheet data...")
         data_ns = load_and_process_data(test_files[0], expected_columns)
@@ -446,26 +435,31 @@ def main():
         for fixed_length in unique_lengths_ns:
             subset = data_ns_cleaned[data_ns_cleaned['L'] == fixed_length]
             title_prefix = f"Nanosheet | Fixed Length: {fixed_length:.2e}"
-            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix)
+            save_path = os.path.join(plot_save_path, "Nanosheet_Fixed_Length")
+            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix, save_path=save_path)
 
         print("Generating fixed length plots for forksheet...")
         for fixed_length in unique_lengths_fs:
             subset = data_fs_cleaned[data_fs_cleaned['L'] == fixed_length]
             title_prefix = f"Forksheet | Fixed Length: {fixed_length:.2e}"
-            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix)
+            save_path = os.path.join(plot_save_path, "Forksheet_Fixed_Length")
+            plot_fixed_param_grouped(subset, 'W', 'L', 'W', title_prefix, save_path=save_path)
 
         # Plot for each unique width with varying lengths for NS and FS
         print("Generating fixed width plots for nanosheet...")
         for fixed_width in unique_widths_ns:
             subset = data_ns_cleaned[data_ns_cleaned['W'] == fixed_width]
             title_prefix = f"Nanosheet | Fixed Width: {fixed_width:.2e}"
-            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix)
+            save_path = os.path.join(plot_save_path, "Nanosheet_Fixed_Width")
+            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix, save_path=save_path)
 
         print("Generating fixed width plots for forksheet...")
         for fixed_width in unique_widths_fs:
             subset = data_fs_cleaned[data_fs_cleaned['W'] == fixed_width]
             title_prefix = f"Forksheet | Fixed Width: {fixed_width:.2e}"
-            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix)
+            save_path = os.path.join(plot_save_path, "Forksheet_Fixed_Width")
+            plot_fixed_param_grouped(subset, 'L', 'W', 'L', title_prefix, save_path=save_path)
+
         
 
         # Define target columns for prediction
@@ -487,9 +481,26 @@ def main():
         compare_and_plot(data_ns,data_fs)
 
 
-# Run the main function
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.withdraw()  # Hide the main root window
+
+    start_time = time.time()
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+
     main()
-    root.mainloop()
+
+    profiler.disable()
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"\nTotal execution time: {execution_time:.2f} seconds")
+
+    stats_filename = "profiling_results.prof"
+    profiler.dump_stats(stats_filename)
+
+    with open("profiling_summary.txt", "w") as f:
+        stats = pstats.Stats(stats_filename, stream=f)
+        stats.strip_dirs().sort_stats("cumulative").print_stats(20)
+
+    print("\nProfiling complete! Results saved to 'profiling_results.prof' and 'profiling_summary.txt'.")
