@@ -76,4 +76,3 @@ This version trains the model over 30 epochs and shows 4 performance graphs.
 ## Notes
 
 - If you encounter errors about missing columns or incorrect file paths, make sure your LTSpice-exported `.txt` files are correctly formatted and update the paths in `simulation.py`.  
-- You can add visual figures comparing nanosheet and forksheet designs or transistor evolution timelines to your analysis workflow for enhanced insights.
