@@ -1,10 +1,24 @@
-# Forksheet and Nanosheet Simulation Repository
+# Optimization of Forksheet and Nanosheet Transistors Through Parametric Simulations and Machine Learning
+---
 
-Welcome to the Forksheet and Nanosheet Simulation repository. This project provides tools to simulate and analyze nanosheet and forksheet transistor designs using LTSpice and Python.
+## Description
+This project presents a combined approach using LTSpice simulations and a Python-based machine learning (ML) framework to analyze and optimize nanosheet (NS) and forksheet (FS) transistor architectures.  
+The code supports:
+- Device-level simulations
+- Automated extraction of key transistor metrics from waveform data
+- ML model training for rapid performance prediction
+
+Focus parameters include rise time, fall time, propagation delay, and voltage stability across different transistor geometries.
+
+---
+## Dataset Information
+- The dataset consists of simulation output waveforms and extracted electrical switching speed performance metrics (rise/fall time, delay, voltage stability) for NS and FS transistor designs over a range of lengths and widths.
+- Data is stored in CSV files with features corresponding to transistor dimensions and labels including measured performance metrics.
 
 ---
 
-## Repository Contents
+## Code Information
+The repository includes:
 
 - **simulation.py**: A Python script for processing and analyzing LTSpice simulation data, generating visualizations, and evaluating transistor performance metrics.  
 - **nanosheet_circuit.asc**: LTSpice schematic for nanosheet transistor simulations.  
@@ -12,6 +26,8 @@ Welcome to the Forksheet and Nanosheet Simulation repository. This project provi
 - **Simulation_with_epoch.py**: Python script similar to `simulation.py` with additional model training checkpoints and performance visualizations over epochs.  
 - **data_set folder**: Contains `nanosheet_circuit.txt` and `forksheet_circuit.txt` — LTSpice simulation data files for each transistor used as input for the Python scripts.
 - **data_summary folder**: Excel documents for all of the outputs for each transistor. Minimums, maximums, and averages are calculated at the bottom of the Excel document.
+
+Modular code design allows easy adaptation to additional transistor configurations or metrics.
 
 ---
 
@@ -34,6 +50,7 @@ Before using this repository, ensure the following are installed on your system:
    Install the necessary libraries using:  
    ```bash
    pip install pandas numpy matplotlib scikit-learn
+   
 
 ## Step 1: LTSpice Simulations
 
