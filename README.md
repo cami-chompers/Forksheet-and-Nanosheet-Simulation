@@ -33,23 +33,40 @@ Modular code design allows easy adaptation to additional transistor configuratio
 
 ## Prerequisites
 
-Before using this repository, ensure the following are installed on your system:
+Before using this repository, ensure the following are installed on your system and are aware of the size necessities:
 
-1. **Python**  
+1.**Size Requirements** 
+- **Python IDLE (Python 3.13) Software**: ~153 MB
+- **Python Launcher Software**: ~1.48 MB
+- **Python libraries compined (pandas numpy matplotlib scikit-learn)** ~98.2 MB
+- **LTSpice Software (24.0.12.0)**: ~152 MB
+- **simulation.py**: ~20.7 KB
+- **nanosheet_circuit.asc**: ~1.30 KB
+- **forksheet_circuit.asc**: ~1.33 KB
+- **Simulation_with_epoch.py**: ~26.3 KB
+- **Data extracted from the nanosheet LTSpice circuit**: ~16.3 MB
+-  **Data extracted from the forksheet LTSpice circuit**: ~17.8 MB
+- **Output folder that includes all the data figures and evaluations from simulation.py**: ~221 MB
+- **Output folder that includes all the data figures and evaluations from Simulation_with_epoch.py**: ~221 MB
+
+   Total size requirements: 881.33 MB
+
+2. **Python**  
    - Download from [python.org](https://www.python.org/downloads/)  
    - Follow installation instructions, making sure to add Python to your system’s PATH  
    - Verify installation by running:  
      ```bash
      python --version
      ```
-2. **LTSpice**  
+3. **LTSpice**  
    - Download from [LTSpice Download Page](https://ez.analog.com/design-tools-and-calculators/ltspice/w/faqs-docs/32232/ltspice-24-download-and-release-notes)  
    - Follow installation instructions and verify by launching LTSpice.
 
-3. **Required Python Libraries**  
+4. **Required Python Libraries**  
    Install the necessary libraries using:  
    ```bash
    pip install pandas numpy matplotlib scikit-learn
+   ```
    
 
 ## Step 1: LTSpice Simulations
