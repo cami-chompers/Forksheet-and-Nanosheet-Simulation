@@ -49,7 +49,7 @@ Before using this repository, ensure the following are installed on your system 
 - **Output folder that includes all the data figures and evaluations from simulation.py**: ~221 MB
 - **Output folder that includes all the data figures and evaluations from Simulation_with_epoch.py**: ~221 MB
 
-   Total size requirements: 881.33 MB
+                        Total size requirements: 881.33 MB
 
 2. **Python**  
    - Download from [python.org](https://www.python.org/downloads/)  
@@ -67,7 +67,8 @@ Before using this repository, ensure the following are installed on your system 
    ```bash
    pip install pandas numpy matplotlib scikit-learn
    ```
-   
+
+---
 
 ## Step 1: LTSpice Simulations
 
