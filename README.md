@@ -88,7 +88,31 @@ Before using this repository, ensure the following are installed on your system 
 - Check the `expected_columns` section to ensure your file names and column headers (e.g., `["time", "V(output)"]`) match your `.txt` files.  
 - Set output folder paths in the global variable of stats_summary_folder, but don't change the "\\stats_summary_data" of the variable as it will be the name of the folder which stores the outputs:    
 - Run the script:  
-  - In IDLE, navigate to **Run > Run Module** or press `F5`.  
+  - In IDLE, navigate to **Run > Run Module** or press `F5`.
+
+---
+
+## Methodology
+
+### Overview of Process
+1. **Device-Level Simulation:**  
+   Parametric LTSpice simulations were performed on NS and FS transistor designs across various lengths and widths to generate voltage waveform data.
+
+2. **Data Extraction:**  
+   Automated parsing of LTSpice output was carried out to extract transient response metrics.
+
+3. **Data Processing:**  
+   Python-based feature extraction and dataset construction were used to prepare the data for modeling.
+
+4. **Machine Learning:**  
+   Regression models (Random Forest) were trained to predict transistor performance metrics given device geometry.
+
+5. **Validation:**  
+   Model accuracy and error metrics were evaluated, and predictions were compared between NS and FS device designs.
+
+This hybrid approach integrates circuit-level physics simulation with data-driven predictive modeling to enable efficient optimization and design space exploration.
+
+---
 
 ## Outputs
 
@@ -109,6 +133,42 @@ This version trains the model over 30 epochs and shows 4 performance graphs.
 
 ⚠️ **Important:** You need to close each graph window one by one to continue to the next. There will be 8 performance graphs total, 4 for each transistor.
 
+---
+
+## Citations
+
+If you use or adapt this dataset or code, please cite the following work:
+
+- Salman, B., Mancillas, C. **“Optimization of Forksheet and Nanosheet Transistors Through Parametric Simulations and Machine Learning for High-Performance Semiconductor Applications,”** [Journal/Conference], 2025.
+
+Additional references related to transistor architectures and ML modeling are included within the code documentation and manuscript.
+
+---
+
+## License & Contribution Guidelines
+ 
+- **Contributions:** Contributions are welcome. Please submit pull requests or issues via GitHub. Ensure your contributions adhere to coding standards and include appropriate tests and documentation.
+
+---
+
+
+## Limitations
+
+- The model’s predictive accuracy depends on the quality and diversity of simulation data; unseen transistor geometries outside the training range may reduce accuracy.
+- LTSpice simulation parameters and environmental conditions were fixed; variations such as temperature effects or process variations are not modeled.
+- The ML framework currently focuses on key switching metrics but can be expanded to include other device characteristics.
+- Computational resources may be a bottleneck for extensive datasets or highly complex transistor models.
+
+---
+## Conclusions
+
+- This study demonstrates an effective hybrid workflow combining LTSpice simulations with machine learning modeling for transistor design optimization.
+- NS transistors show superior switching performance, while FS transistors provide better voltage stability at larger scales.
+- The ML models accurately predict device behavior with approximately **89% accuracy** for forksheet and **95% accuracy** for nanosheet, drastically reducing simulation time while facilitating rapid design space exploration.
+
+---
+
 ## Notes
 
-- If you encounter errors about missing columns or incorrect file paths, make sure your LTSpice-exported `.txt` files are correctly formatted and update the paths in `simulation.py`.  
+- If you encounter errors about missing columns or incorrect file paths, make sure your LTSpice-exported `.txt` files are correctly formatted and update the paths in `simulation.py`.
+- Python scripts include inline documentation and usage comments for ease of adaptation.
